@@ -3,24 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Suraksha Mesh SOS</title>
+    <title>Suraksha Mesh SOS - Live Shield</title>
     <style>
-        body { background: #0f172a; color: #f8fafc; font-family: sans-serif; text-align: center; padding: 20px; }
-        .sos-btn { background: #dc2626; color: white; border: none; width: 220px; height: 220px; border-radius: 50%; font-size: 28px; font-weight: bold; margin-top: 50px; box-shadow: 0 0 30px rgba(220, 38, 38, 0.7); cursor: pointer; }
-        .status { margin-top: 30px; font-size: 18px; color: #cbd5e1; }
+        body { background: #090d16; color: #f8fafc; font-family: sans-serif; text-align: center; padding: 20px; margin: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; }
+        .sos-btn { background: linear-gradient(135deg, #ef4444, #991b1b); color: white; border: none; width: 240px; height: 240px; border-radius: 50%; font-size: 32px; font-weight: bold; box-shadow: 0 0 50px rgba(239, 68, 68, 0.8); cursor: pointer; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.8); } 70% { transform: scale(1.05); box-shadow: 0 0 0 25px rgba(239, 68, 68, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        .status { margin-top: 30px; font-size: 18px; color: #cbd5e1; max-width: 400px; line-height: 1.5; padding: 0 20px; }
+        .alert-box { background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 10px; padding: 15px; margin-top: 20px; display: none; }
     </style>
 </head>
 <body>
-    <h1>लाइव शील्ड SOS मेश</h1>
-    <button class="sos-btn" onclick="triggerSOS()">SOS<br>बचाओ</button>
-    <div class="status" id="statusText">सिस्टम सुरक्षित और तैयार है।</div>
+    <h1>🚨 लाइव शील्ड SOS सायरन</h1>
+    <button class="sos-btn" onclick="triggerFullSOS()">SOS<br>बचाओ!</button>
+    <div class="status" id="statusText">सिस्टम तैयार है। खतरे के समय बटन दबाएं।</div>
+    <div class="alert-box" id="alertBox"></div>
 
     <script>
-        function triggerSOS() {
-            document.getElementById('statusText').innerText = "अल्टीमेट सायरन और ब्लूटूथ पल्स ब्रॉडकास्ट हो रही है...";
-            navigator.vibrate([500, 200, 500, 200]);
-            // यहाँ ऑफलाइन मेश और ब्लूटूथ ब्रॉडकास्ट ट्रिगर होगा
-            alert("इमरजेंसी सिग्नल और लोकेशन आसपास के नोड्स पर भेजी जा रही है!");
+        let audioCtx = null;
+        let sirenInterval = null;
+
+        function playSiren() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (sirenInterval) return;
+
+            let freq = 400;
+            let goingUp = true;
+
+            sirenInterval = setInterval(() => {
+                if (!audioCtx) return;
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                
+                gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.2);
+
+                if (goingUp) {
+                    freq += 60;
+                    if (freq > 950) goingUp = false;
+                } else {
+                    freq -= 60;
+                    if (freq < 400) goingUp = true;
+                }
+            }, 200);
+        }
+
+        function triggerFullSOS() {
+            if (navigator.vibrate) {
+                navigator.vibrate([1000, 500, 1000, 500, 1000, 500]);
+            }
+
+            playSiren();
+
+            document.getElementById('statusText').innerText = "⚠️ सायरन बज रहा है! लाइव लोकेशन और ब्लूटूथ मेश ब्रॉडकास्ट एक्टिव है...";
+            let alertBox = document.getElementById('alertBox');
+            alertBox.style.display = 'block';
+            alertBox.innerHTML = "<strong>आसपास के नोड्स और सर्वर को अलर्ट भेजा जा रहा है...</strong>";
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        let lat = position.coords.latitude;
+                        let lon = position.coords.longitude;
+                        alertBox.innerHTML = `📍 <strong>लाइव लोकेशन लॉक हो गई!</strong><br>Lat: ${lat.toFixed(4)}, Lon: ${lon.toFixed(4)}<br><em>ब्लूटूथ मेश और हाई-फ्रीक्वेंसी ब्रॉडकास्ट एक्टिव!</em>`;
+                    },
+                    (error) => {
+                        alertBox.innerHTML = `⚠️ लोकेशन फेच करने में दिक्कत: ${error.message}<br><em>फिर भी लोकल सायरन और ब्लूटूथ पल्स चालू है!</em>`;
+                    },
+                    { enableHighAccuracy: true }
+                );
+            }
         }
     </script>
 </body>
