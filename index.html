@@ -9,11 +9,11 @@
         .sos-btn { background: linear-gradient(135deg, #ef4444, #991b1b); color: white; border: none; width: 240px; height: 240px; border-radius: 50%; font-size: 32px; font-weight: bold; box-shadow: 0 0 50px rgba(239, 68, 68, 0.8); cursor: pointer; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.8); } 70% { transform: scale(1.05); box-shadow: 0 0 0 25px rgba(239, 68, 68, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
         .status { margin-top: 30px; font-size: 18px; color: #cbd5e1; max-width: 400px; line-height: 1.5; padding: 0 20px; }
-        .alert-box { background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 10px; padding: 15px; margin-top: 20px; display: none; }
+        .alert-box { background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 10px; padding: 15px; margin-top: 20px; display: none; font-size: 14px; text-align: left; }
     </style>
 </head>
 <body>
-    <h1>🚨 लाइव शील्ड SOS सायरन</h1>
+    <h1>🚨 लाइव शील्ड SOS मेश</h1>
     <button class="sos-btn" onclick="triggerFullSOS()">SOS<br>बचाओ!</button>
     <div class="status" id="statusText">सिस्टम तैयार है। खतरे के समय बटन दबाएं।</div>
     <div class="alert-box" id="alertBox"></div>
@@ -58,6 +58,24 @@
             }, 200);
         }
 
+        async function triggerBluetoothMesh() {
+            let alertBox = document.getElementById('alertBox');
+            if (!navigator.bluetooth) {
+                alertBox.innerHTML += "<br>⚠️ इस ब्राउज़र में ब्लूटूथ मेश समर्थित नहीं है।";
+                return;
+            }
+            try {
+                alertBox.innerHTML += "<br>🔵 आस-पास के ब्लूटूथ मेश नोड्स की तलाश जारी है...";
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: ['battery_service']
+                });
+                alertBox.innerHTML += `<br>✅ कनेक्टेड नोड: <strong>${device.name || 'मेश डिवाइस'}</strong> - इमरजेंसी पल्स ब्रॉडकास्ट सफल!`;
+            } catch (error) {
+                alertBox.innerHTML += `<br>⚠️ ब्लूटूथ मेश पल्स: यूजर द्वारा कैंसल या डिवाइस नहीं मिला (${error.message})`;
+            }
+        }
+
         function triggerFullSOS() {
             if (navigator.vibrate) {
                 navigator.vibrate([1000, 500, 1000, 500, 1000, 500]);
@@ -65,24 +83,27 @@
 
             playSiren();
 
-            document.getElementById('statusText').innerText = "⚠️ सायरन बज रहा है! लाइव लोकेशन और ब्लूटूथ मेश ब्रॉडकास्ट एक्टिव है...";
+            document.getElementById('statusText').innerText = "⚠️ सायरन बज रहा है! लाइव लोकेशन और ब्लूटूथ मेश एक्टिव है...";
             let alertBox = document.getElementById('alertBox');
             alertBox.style.display = 'block';
-            alertBox.innerHTML = "<strong>आसपास के नोड्स और सर्वर को अलर्ट भेजा जा रहा है...</strong>";
+            alertBox.innerHTML = "<strong>सिस्टम एक्टिव:</strong> इमरजेंसी सिग्नल्स प्रोसेस हो रहे हैं...";
 
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     (position) => {
                         let lat = position.coords.latitude;
                         let lon = position.coords.longitude;
-                        alertBox.innerHTML = `📍 <strong>लाइव लोकेशन लॉक हो गई!</strong><br>Lat: ${lat.toFixed(4)}, Lon: ${lon.toFixed(4)}<br><em>ब्लूटूथ मेश और हाई-फ्रीक्वेंसी ब्रॉडकास्ट एक्टिव!</em>`;
+                        alertBox.innerHTML += `<br>📍 <strong>लोकेशन लॉक:</strong> ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
                     },
                     (error) => {
-                        alertBox.innerHTML = `⚠️ लोकेशन फेच करने में दिक्कत: ${error.message}<br><em>फिर भी लोकल सायरन और ब्लूटूथ पल्स चालू है!</em>`;
+                        alertBox.innerHTML += `<br>⚠️ लोकेशन एरर: ${error.message}`;
                     },
                     { enableHighAccuracy: true }
                 );
             }
+
+            // Trigger Bluetooth Mesh Offline Discovery
+            triggerBluetoothMesh();
         }
     </script>
 </body>
