@@ -12,7 +12,6 @@
         .alert-box { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; border-radius: 10px; padding: 15px; margin-top: 20px; display: none; font-size: 14px; text-align: left; width: 90%; max-width: 400px; }
     </style>
 
-    <!-- Firebase SDK लोड कर रहे हैं ताकि ग्लोबल डेटा सिंक हो सके -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 </head>
@@ -23,7 +22,6 @@
     <div class="alert-box" id="alertBox"></div>
 
     <script>
-        // फ्री क्लाउड डेटाबेस कॉन्फिगरेशन (यह ग्लोबल मेश का हब है)
         const firebaseConfig = {
             databaseURL: "https://suraksha-mesh-default-rtdb.firebaseio.com/"
         };
@@ -69,7 +67,6 @@
             }, 200);
         }
 
-        // जब कोई यूजर SOS बटन दबाएगा
         function triggerGlobalSOS() {
             if (navigator.vibrate) navigator.vibrate([1000, 500, 1000, 500]);
             
@@ -81,7 +78,6 @@
                         let lat = position.coords.latitude;
                         let lon = position.coords.longitude;
                         
-                        // डेटाबेस पर लाइव कोऑर्डिनेट और टाइमस्टैम्प पुश कर दो
                         db.ref('alerts/current').set({
                             lat: lat,
                             lon: lon,
@@ -95,21 +91,16 @@
                         playSiren();
                     },
                     (error) => {
-                        alert.("लोकेशन नहीं मिल पाई: " + error.message);
+                        alert("लोकेशन नहीं मिल पाई: " + error.message);
                     },
                     { enableHighAccuracy: true }
                 );
             }
         }
 
-        // बैकग्राउंड में सुनना (Listener): अगर दुनिया के किसी भी कोने में कोई SOS दबेगा, तो यह फोन अपने आप चीख उठेगा!
-        db.ref('alerts/current').on('snapshot', (snapshot) => {
-            // पुराने कोड का लिसनर सेटअप
-        });
-
         db.ref('alerts/current').on('value', (snapshot) => {
             let data = snapshot.val();
-            if (data && (Date.now() - data.time < 30000)) { // पिछले 30 सेकंड के भीतर का अलर्ट हो
+            if (data && (Date.now() - data.time < 30000)) {
                 playSiren();
                 let alertBox = document.getElementById('alertBox');
                 alertBox.style.display = 'block';
