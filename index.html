@@ -3,22 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Suraksha Mesh SOS - Live Shield</title>
+    <title>Global Live Shield SOS</title>
     <style>
-        body { background: #090d16; color: #f8fafc; font-family: sans-serif; text-align: center; padding: 20px; margin: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; }
-        .sos-btn { background: linear-gradient(135deg, #ef4444, #991b1b); color: white; border: none; width: 240px; height: 240px; border-radius: 50%; font-size: 32px; font-weight: bold; box-shadow: 0 0 50px rgba(239, 68, 68, 0.8); cursor: pointer; animation: pulse 1.5s infinite; }
+        body { background: #090d16; color: #f8fafc; font-family: sans-serif; text-align: center; padding: 20px; margin: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; }
+        .sos-btn { background: linear-gradient(135deg, #ef4444, #991b1b); color: white; border: none; width: 220px; height: 220px; border-radius: 50%; font-size: 30px; font-weight: bold; box-shadow: 0 0 50px rgba(239, 68, 68, 0.8); cursor: pointer; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.8); } 70% { transform: scale(1.05); box-shadow: 0 0 0 25px rgba(239, 68, 68, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
-        .status { margin-top: 30px; font-size: 18px; color: #cbd5e1; max-width: 400px; line-height: 1.5; padding: 0 20px; }
-        .alert-box { background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 10px; padding: 15px; margin-top: 20px; display: none; font-size: 14px; text-align: left; }
+        .status { margin-top: 20px; font-size: 16px; color: #cbd5e1; max-width: 400px; line-height: 1.5; padding: 0 20px; }
+        .alert-box { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; border-radius: 10px; padding: 15px; margin-top: 20px; display: none; font-size: 14px; text-align: left; width: 90%; max-width: 400px; }
     </style>
+
+    <!-- Firebase SDK लोड कर रहे हैं ताकि ग्लोबल डेटा सिंक हो सके -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 </head>
 <body>
-    <h1>🚨 लाइव शील्ड SOS मेश</h1>
-    <button class="sos-btn" onclick="triggerFullSOS()">SOS<br>बचाओ!</button>
-    <div class="status" id="statusText">सिस्टम तैयार है। खतरे के समय बटन दबाएं।</div>
+    <h1>🚨 ग्लोबल लाइव शील्ड</h1>
+    <button class="sos-btn" onclick="triggerGlobalSOS()">SOS<br>बचाओ!</button>
+    <div class="status" id="statusText">सिस्टम एक्टिव है। कोई भी पल्स सुनने के लिए यह पेज खुला रखें।</div>
     <div class="alert-box" id="alertBox"></div>
 
     <script>
+        // फ्री क्लाउड डेटाबेस कॉन्फिगरेशन (यह ग्लोबल मेश का हब है)
+        const firebaseConfig = {
+            databaseURL: "https://suraksha-mesh-default-rtdb.firebaseio.com/"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
         let audioCtx = null;
         let sirenInterval = null;
 
@@ -39,7 +50,7 @@
                 osc.type = 'sawtooth';
                 osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
                 
-                gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
                 
                 osc.connect(gain);
@@ -58,53 +69,54 @@
             }, 200);
         }
 
-        async function triggerBluetoothMesh() {
-            let alertBox = document.getElementById('alertBox');
-            if (!navigator.bluetooth) {
-                alertBox.innerHTML += "<br>⚠️ इस ब्राउज़र में ब्लूटूथ मेश समर्थित नहीं है।";
-                return;
-            }
-            try {
-                alertBox.innerHTML += "<br>🔵 आस-पास के ब्लूटूथ मेश नोड्स की तलाश जारी है...";
-                const device = await navigator.bluetooth.requestDevice({
-                    acceptAllDevices: true,
-                    optionalServices: ['battery_service']
-                });
-                alertBox.innerHTML += `<br>✅ कनेक्टेड नोड: <strong>${device.name || 'मेश डिवाइस'}</strong> - इमरजेंसी पल्स ब्रॉडकास्ट सफल!`;
-            } catch (error) {
-                alertBox.innerHTML += `<br>⚠️ ब्लूटूथ मेश पल्स: यूजर द्वारा कैंसल या डिवाइस नहीं मिला (${error.message})`;
-            }
-        }
-
-        function triggerFullSOS() {
-            if (navigator.vibrate) {
-                navigator.vibrate([1000, 500, 1000, 500, 1000, 500]);
-            }
-
-            playSiren();
-
-            document.getElementById('statusText').innerText = "⚠️ सायरन बज रहा है! लाइव लोकेशन और ब्लूटूथ मेश एक्टिव है...";
-            let alertBox = document.getElementById('alertBox');
-            alertBox.style.display = 'block';
-            alertBox.innerHTML = "<strong>सिस्टम एक्टिव:</strong> इमरजेंसी सिग्नल्स प्रोसेस हो रहे हैं...";
+        // जब कोई यूजर SOS बटन दबाएगा
+        function triggerGlobalSOS() {
+            if (navigator.vibrate) navigator.vibrate([1000, 500, 1000, 500]);
+            
+            document.getElementById('statusText').innerText = "⚠️ इमरजेंसी पल्स ग्लोबल क्लाउड पर भेजी जा रही है...";
 
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     (position) => {
                         let lat = position.coords.latitude;
                         let lon = position.coords.longitude;
-                        alertBox.innerHTML += `<br>📍 <strong>लोकेशन लॉक:</strong> ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+                        
+                        // डेटाबेस पर लाइव कोऑर्डिनेट और टाइमस्टैम्प पुश कर दो
+                        db.ref('alerts/current').set({
+                            lat: lat,
+                            lon: lon,
+                            time: Date.now(),
+                            message: "जान पर खतरा! तत्काल सहायता चाहिए!"
+                        });
+
+                        let alertBox = document.getElementById('alertBox');
+                        alertBox.style.display = 'block';
+                        alertBox.innerHTML = `📍 <strong>लोकेशन ब्रॉडकास्ट सफल!</strong><br>Lat: ${lat}, Lon: ${lon}<br><em>दुनिया भर के नोड्स को अलर्ट भेज दिया गया है।</em>`;
+                        playSiren();
                     },
                     (error) => {
-                        alertBox.innerHTML += `<br>⚠️ लोकेशन एरर: ${error.message}`;
+                        alert.("लोकेशन नहीं मिल पाई: " + error.message);
                     },
                     { enableHighAccuracy: true }
                 );
             }
-
-            // Trigger Bluetooth Mesh Offline Discovery
-            triggerBluetoothMesh();
         }
+
+        // बैकग्राउंड में सुनना (Listener): अगर दुनिया के किसी भी कोने में कोई SOS दबेगा, तो यह फोन अपने आप चीख उठेगा!
+        db.ref('alerts/current').on('snapshot', (snapshot) => {
+            // पुराने कोड का लिसनर सेटअप
+        });
+
+        db.ref('alerts/current').on('value', (snapshot) => {
+            let data = snapshot.val();
+            if (data && (Date.now() - data.time < 30000)) { // पिछले 30 सेकंड के भीतर का अलर्ट हो
+                playSiren();
+                let alertBox = document.getElementById('alertBox');
+                alertBox.style.display = 'block';
+                alertBox.innerHTML = `🚨 <strong>इमरजेंसी इनकमिंग अलर्ट!</strong><br>Lat: ${data.lat}, Lon: ${data.lon}<br><a href="https://maps.google.com/?q=${data.lat},${data.lon}" target="_blank" style="color: #f87171; font-weight: bold; font-size: 16px;">🗺️ सटीक गूगल मैप लोकेशन खोलें</a>`;
+                document.getElementById('statusText').innerText = "⚠️ खतरे का सायरन बज रहा है!";
+            }
+        });
     </script>
 </body>
 </html>
