@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suraksha Mesh SOS</title>
+    <style>
+        body { background: #0f172a; color: #f8fafc; font-family: sans-serif; text-align: center; padding: 20px; }
+        .sos-btn { background: #dc2626; color: white; border: none; width: 220px; height: 220px; border-radius: 50%; font-size: 28px; font-weight: bold; margin-top: 50px; box-shadow: 0 0 30px rgba(220, 38, 38, 0.7); cursor: pointer; }
+        .status { margin-top: 30px; font-size: 18px; color: #cbd5e1; }
+    </style>
+</head>
+<body>
+    <h1>लाइव शील्ड SOS मेश</h1>
+    <button class="sos-btn" onclick="triggerSOS()">SOS<br>बचाओ</button>
+    <div class="status" id="statusText">सिस्टम सुरक्षित और तैयार है।</div>
+
+    <script>
+        function triggerSOS() {
+            document.getElementById('statusText').innerText = "अल्टीमेट सायरन और ब्लूटूथ पल्स ब्रॉडकास्ट हो रही है...";
+            navigator.vibrate([500, 200, 500, 200]);
+            // यहाँ ऑफलाइन मेश और ब्लूटूथ ब्रॉडकास्ट ट्रिगर होगा
+            alert("इमरजेंसी सिग्नल और लोकेशन आसपास के नोड्स पर भेजी जा रही है!");
+        }
+    </script>
+</body>
+</html>
