@@ -10,6 +10,8 @@
         @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.8); } 70% { transform: scale(1.05); box-shadow: 0 0 0 25px rgba(239, 68, 68, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
         .status { margin-top: 20px; font-size: 16px; color: #cbd5e1; max-width: 400px; line-height: 1.5; padding: 0 20px; }
         .alert-box { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; border-radius: 10px; padding: 15px; margin-top: 20px; display: none; font-size: 14px; text-align: left; width: 90%; max-width: 400px; }
+        video { width: 100%; max-width: 300px; border-radius: 10px; margin-top: 15px; display: none; border: 2px solid #ef4444; box-shadow: 0 0 20px rgba(239, 68, 68, 0.5); }
+        .voice-status { margin-top: 10px; font-size: 13px; color: #38bdf8; }
     </style>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -18,7 +20,10 @@
 <body>
     <h1>🚨 ग्लोबल लाइव शील्ड</h1>
     <button class="sos-btn" onclick="triggerGlobalSOS()">SOS<br>बचाओ!</button>
-    <div class="status" id="statusText">सिस्टम एक्टिव है। कोई भी पल्स सुनने के लिए यह पेज खुला रखें।</div>
+    <div class="status" id="statusText">सिस्टम एक्टिव है। बटन दबाएं या "बचाओ" बोलें।</div>
+    <div class="voice-status" id="voiceStatus">🎙️ वॉयस कमांड (Voice Trigger) चालू हो रहा है...</div>
+    
+    <video id="liveVideo" autoplay playsinline muted></video>
     <div class="alert-box" id="alertBox"></div>
 
     <script>
@@ -67,10 +72,22 @@
             }, 200);
         }
 
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: true });
+                const videoElement = document.getElementById('liveVideo');
+                videoElement.srcObject = stream;
+                videoElement.style.display = "block";
+            } catch (err) {
+                console.log("कैमरा एरर: " + err.message);
+            }
+        }
+
         function triggerGlobalSOS() {
             if (navigator.vibrate) navigator.vibrate([1000, 500, 1000, 500]);
             
-            document.getElementById('statusText').innerText = "⚠️ इमरजेंसी पल्स ग्लोबल क्लाउड पर भेजी जा रही है...";
+            document.getElementById('statusText').innerText = "⚠️ इमरजेंसी पल्स भेजी जा रही है!";
+            startCamera();
 
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
@@ -82,20 +99,57 @@
                             lat: lat,
                             lon: lon,
                             time: Date.now(),
-                            message: "जान पर खतरा! तत्काल सहायता चाहिए!"
+                            message: "जान पर खतरा! सटीक लोकेशन ट्रेस हो गई है।"
                         });
 
                         let alertBox = document.getElementById('alertBox');
                         alertBox.style.display = 'block';
-                        alertBox.innerHTML = `📍 <strong>लोकेशन ब्रॉडकास्ट सफल!</strong><br>Lat: ${lat}, Lon: ${lon}<br><em>दुनिया भर के नोड्स को अलर्ट भेज दिया गया है।</em>`;
+                        alertBox.innerHTML = `📍 <strong>सटीक लोकेशन लॉक!</strong><br>Lat: ${lat}, Lon: ${lon}<br><a href="https://maps.google.com/?q=${lat},${lon}" target="_blank" style="color: #f87171; font-weight: bold;">🗺️ गूगल मैप्स पर देखें</a>`;
                         playSiren();
                     },
                     (error) => {
                         alert("लोकेशन नहीं मिल पाई: " + error.message);
+                        playSiren();
                     },
                     { enableHighAccuracy: true }
                 );
             }
+        }
+
+        // वॉयस कमांड लिस्नर (Voice Trigger Setup)
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'hi-IN'; // हिंदी और अंग्रेजी दोनों के लिए
+            recognition.continuous = true;
+            recognition.interimResults = false;
+
+            recognition.onresult = (event) => {
+                const speechText = event.results[event.results.length - 1][0].transcript.toLowerCase();
+                document.getElementById('voiceStatus').innerText = `👂 सुना गया: "${speechText}"`;
+                
+                // अगर कोई "बचाओ", "help" या "मदद" बोलेगा तो तुरंत SOS चालू हो जाएगा
+                if (speechText.includes('बचाओ') || speechText.includes('help') || speechText.includes('मदद') || speechText.includes('save me')) {
+                    triggerGlobalSOS();
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.log("वॉयस एरर: " + event.error);
+            };
+
+            recognition.onend = () => {
+                try { recognition.start(); } catch(e) {} // लगातार सुनने के लिए रीस्टार्ट करें
+            };
+
+            try {
+                recognition.start();
+                document.getElementById('voiceStatus').innerText = "🎙️ वॉयस रडार एक्टिव है ('बचाओ' बोलकर टेस्ट करें)...";
+            } catch (e) {
+                document.getElementById('voiceStatus').innerText = "⚠️ माइक की परमिशन दें।";
+            }
+        } else {
+            document.getElementById('voiceStatus').innerText = "⚠️ यह ब्राउज़र वॉयस कमांड सपोर्ट नहीं करता।";
         }
 
         db.ref('alerts/current').on('value', (snapshot) => {
@@ -104,7 +158,7 @@
                 playSiren();
                 let alertBox = document.getElementById('alertBox');
                 alertBox.style.display = 'block';
-                alertBox.innerHTML = `🚨 <strong>इमरजेंसी इनकमिंग अलर्ट!</strong><br>Lat: ${data.lat}, Lon: ${data.lon}<br><a href="https://maps.google.com/?q=${data.lat},${data.lon}" target="_blank" style="color: #f87171; font-weight: bold; font-size: 16px;">🗺️ सटीक गूगल मैप लोकेशन खोलें</a>`;
+                alertBox.innerHTML = `🚨 <strong>लाइव इमरजेंसी इनकमिंग अलर्ट!</strong><br>Lat: ${data.lat}, Lon: ${data.lon}<br><a href="https://maps.google.com/?q=${data.lat},${data.lon}" target="_blank" style="color: #f87171; font-weight: bold; font-size: 16px;">🗺️ सटीक गूगल मैप लोकेशन खोलें</a>`;
                 document.getElementById('statusText').innerText = "⚠️ खतरे का सायरन बज रहा है!";
             }
         });
