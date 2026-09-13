@@ -11,17 +11,17 @@
         .status { margin-top: 20px; font-size: 16px; color: #cbd5e1; max-width: 400px; line-height: 1.5; padding: 0 20px; }
         .alert-box { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; border-radius: 10px; padding: 15px; margin-top: 20px; display: none; font-size: 14px; text-align: left; width: 90%; max-width: 400px; }
         video { width: 100%; max-width: 300px; border-radius: 10px; margin-top: 15px; display: none; border: 2px solid #ef4444; box-shadow: 0 0 20px rgba(239, 68, 68, 0.5); }
-        .voice-status { margin-top: 10px; font-size: 13px; color: #38bdf8; }
+        .voice-status { margin-top: 10px; font-size: 14px; color: #38bdf8; font-weight: bold; }
     </style>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 </head>
 <body>
-    <h1>🚨 ग्लोबल लाइव शील्ड</h1>
+    <h1>🚨 ग्लोबल वॉयस शील्ड</h1>
     <button class="sos-btn" onclick="triggerGlobalSOS()">SOS<br>बचाओ!</button>
-    <div class="status" id="statusText">सिस्टम एक्टिव है। बटन दबाएं या "बचाओ" बोलें।</div>
-    <div class="voice-status" id="voiceStatus">🎙️ वॉयस रडार चालू हो रहा है...</div>
+    <div class="status" id="statusText">वॉयस रडार चालू है। सिर्फ "मुझे बचाओ" बोलें।</div>
+    <div class="voice-status" id="voiceStatus">🎙️ सुनने के लिए तैयार...</div>
     
     <video id="liveVideo" autoplay playsinline muted></video>
     <div class="alert-box" id="alertBox"></div>
@@ -83,23 +83,28 @@
             }
         }
 
-        async function getPlaceName(lat, lon, callback) {
+        async function getExactLocationName(lat, lon, callback) {
             try {
                 let response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`, {
-                    headers: { 'Accept-Language': 'hi' } // हिंदी में पता लाने के लिए
+                    headers: { 'Accept-Language': 'hi' }
                 });
                 let data = await response.json();
-                let placeName = data.display_name || "अज्ञात स्थान";
-                callback(placeName);
+                let exactAddress = data.display_name || "सटीक स्थान";
+                callback(exactAddress);
             } catch (e) {
-                callback("लोकेशन का नाम लोड नहीं हो पाया");
+                callback("लोकेशन नाम प्राप्त करने में असमर्थ");
             }
         }
 
+        let isTriggered = false;
+
         function triggerGlobalSOS() {
-            if (navigator.vibrate) navigator.vibrate([1000, 500, 1000, 500]);
+            if (isTriggered) return; // बार-बार ट्रिगर न हो
+            isTriggered = true;
+
+            if (navigator.vibrate) navigator.vibrate([1000, 500, 1000, 500, 1000]);
             
-            document.getElementById('statusText').innerText = "⚠️ सटीक जगह का नाम और पल्स भेजी जा रही है...";
+            document.getElementById('statusText').innerText = "⚠️ 'मुझे बचाओ' वॉयस कमांड डिटेक्ट! सटीक लोकेशन भेजी जा रही है...";
             startCamera();
 
             if (navigator.geolocation) {
@@ -108,65 +113,76 @@
                         let lat = position.coords.latitude;
                         let lon = position.coords.longitude;
                         
-                        // जगह का नाम लाओ और फिर डेटाबेस में भेजो
-                        getPlaceName(lat, lon, (placeName) => {
+                        getExactLocationName(lat, lon, (exactAddress) => {
                             db.ref('alerts/current').set({
                                 lat: lat,
                                 lon: lon,
-                                address: placeName,
+                                address: exactAddress,
                                 time: Date.now(),
-                                message: "जान पर खतरा! तत्काल सहायता चाहिए!"
+                                message: "वॉयस ट्रिगर: जान पर गंभीर खतरा!"
                             });
 
                             let alertBox = document.getElementById('alertBox');
                             alertBox.style.display = 'block';
-                            alertBox.innerHTML = `📍 <strong>सटीक जगह मिल गई!</strong><br><br>📌 <strong>पता:</strong> ${placeName}<br><br>🗺️ <a href="https://maps.google.com/?q=${lat},${lon}" target="_blank" style="color: #f87171; font-weight: bold; font-size: 16px;">गूगल मैप पर पूरा रास्ता देखें</a>`;
+                            alertBox.innerHTML = `🚨 <strong>सटीक लोकेशन लॉक्ड!</strong><br><br>📌 <strong>पूरा स्थान:</strong> ${exactAddress}<br><br>🌐 <strong>कोऑर्डिनेट्स:</strong> ${lat}, ${lon}<br><br>🗺️ <a href="https://maps.google.com/?q=${lat},${lon}" target="_blank" style="color: #f87171; font-weight: bold; font-size: 16px;">गूगल मैप्स पर सटीक जगह खोलें</a>`;
                             playSiren();
                         });
                     },
                     (error) => {
-                        alert("लोकेशन नहीं मिल पाई: " + error.message);
-                        playSiren();
+                        alert("GPS लोकेशन नहीं मिल पाई: " + error.message);
+                        playSireon();
                     },
-                    { enableHighAccuracy: true }
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
                 );
             }
         }
 
-        // वॉयस कमांड लिस्नर
+        // कंटीन्यूअस वॉयस रिकग्निशन (हाथ लगाने की जरूरत नहीं)
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
             const recognition = new SpeechRecognition();
             recognition.lang = 'hi-IN';
             recognition.continuous = true;
-            recognition.interimResults = false;
+            recognition.interimResults = true;
 
             recognition.onresult = (event) => {
                 const speechText = event.results[event.results.length - 1][0].transcript.toLowerCase();
                 document.getElementById('voiceStatus').innerText = `👂 सुना गया: "${speechText}"`;
                 
-                if (speechText.includes('बचाओ') || speechText.includes('help') || speechText.includes('मदद') || speechText.includes('save me')) {
+                // जैसे ही इनमें से कोई भी शब्द मुँह से निकले, तुरंत SOS चालू
+                if (speechText.includes('मुझे बचाओ') || speechText.includes('बचाओ') || speechText.includes('help me') || speechText.includes('मदद करो')) {
                     triggerGlobalSOS();
                 }
             };
 
+            recognition.onerror = (event) => {
+                console.log("वॉयस एरर: " + event.error);
+            };
+
             recognition.onend = () => {
-                try { recognition.start(); } catch(e) {}
+                if (!isTriggered) {
+                    try { recognition.start(); } catch(e) {}
+                }
             };
 
             try {
                 recognition.start();
-                document.getElementById('voiceStatus').innerText = "🎙️ वॉयस रडार एक्टिव है ('बचाओ' बोलकर टेस्ट करें)...";
-            } catch (e) {}
+                document.getElementById('voiceStatus').innerText = "🎙️ माइक चालू है... 'मुझे बचाओ' बोलकर टेस्ट करें।";
+            } catch (e) {
+                document.getElementById('voiceStatus').innerText = "⚠️ कृपया माइक की परमिशन दें।";
+            }
+        } else {
+            document.getElementById('voiceStatus').innerText = "⚠️ ब्राउज़र वॉयस कमांड सपोर्ट नहीं करता।";
         }
 
+        // क्लाउड पर किसी दूसरे के द्वारा भेजे गए अलर्ट को रिसीव करना
         db.ref('alerts/current').on('value', (snapshot) => {
             let data = snapshot.val();
-            if (data && (Date.now() - data.time < 30000)) {
+            if (data && (Date.now() - data.time < 40000)) {
                 playSiren();
                 let alertBox = document.getElementById('alertBox');
                 alertBox.style.display = 'block';
-                alertBox.innerHTML = `🚨 <strong>लाइव इमरजेंसी इनकमिंग अलर्ट!</strong><br><br>📌 <strong>घटना स्थल:</strong> ${data.address || 'स्थान लोड हो रहा है...'}<br><br>🗺️ <a href="https://maps.google.com/?q=${data.lat},${data.lon}" target="_blank" style="color: #f87171; font-weight: bold; font-size: 16px;">गूगल मैप पर सटीक लोकेशन खोलें</a>`;
+                alertBox.innerHTML = `🚨 <strong>लाइव इमरजेंसी अलर्ट!</strong><br><br>📌 <strong>घटना स्थल:</strong> ${data.address || 'लोकेशन लोड हो रही है...'}<br><br>🗺️ <a href="https://maps.google.com/?q=${data.lat},${data.lon}" target="_blank" style="color: #f87171; font-weight: bold; font-size: 16px;">गूगल मैप पर सटीक लोकेशन खोलें</a>`;
                 document.getElementById('statusText').innerText = "⚠️ खतरे का सायरन बज रहा है!";
             }
         });
