@@ -7,7 +7,6 @@
     <style>
         body { background: #090d16; color: #f8fafc; font-family: sans-serif; text-align: center; padding: 15px; margin: 0; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; min-height: 100vh; }
         
-        /* सबसे ऊपर दिखने वाला लोकेशन बैनर */
         .top-location-banner { background: #991b1b; color: white; width: 100%; max-width: 450px; padding: 15px; border-radius: 8px; margin-bottom: 15px; font-size: 16px; font-weight: bold; display: none; box-shadow: 0 0 25px rgba(239, 68, 68, 0.9); text-align: center; border: 2px solid #f87171; animation: blink 1s infinite; }
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
 
@@ -25,7 +24,6 @@
 </head>
 <body>
 
-    <!-- 🚨 सबसे ऊपर दिखने वाला सटीक लोकेशन बैनर -->
     <div id="topBanner" class="top-location-banner">
         ⚠️ खतरा! सटीक स्थान खोजा जा रहा है...
     </div>
@@ -116,36 +114,50 @@
 
             if (navigator.vibrate) navigator.vibrate([1000, 500, 1000, 500, 1000]);
             
-            document.getElementById('statusText').innerText = "⚠️ 'मुझे बचाओ' वॉयस डिटेक्ट! लोकेशन भेजी जा रही है...";
+            document.getElementById('statusText').innerText = "⚠️ वॉयस डिटेक्ट! लोकेशन खोजी जा रही है...";
             startCamera();
 
             if (navigator.geolocation) {
+                // पहले हाई-एक्यूरेसी जीपीएस की कोशिश करें
                 navigator.geolocation.getCurrentPosition(
                     (position) => {
-                        let lat = position.coords.latitude;
-                        let lon = position.coords.longitude;
-                        
-                        getExactLocationName(lat, lon, (exactAddress) => {
-                            // डेटाबेस पर भेजें ताकि दुनिया के हर कोने में खुले लिंक पर यह सबसे ऊपर दिखे
-                            db.ref('alerts/current').set({
-                                lat: lat,
-                                lon: lon,
-                                address: exactAddress,
-                                time: Date.now(),
-                                message: "गंभीर खतरा!"
-                            });
-
-                            showTopAlert(exactAddress, lat, lon);
-                            playSiren();
-                        });
+                        processLocation(position);
                     },
                     (error) => {
-                        alert("GPS लोकेशन नहीं मिल पाई: " + error.message);
-                        playSiren();
+                        console.log("High accuracy timeout, switching to fallback...");
+                        // अगर टाइमआउट हो जाए, तो सामान्य नेटवर्क लोकेशन से तुरंत पकड़ें
+                        navigator.geolocation.getCurrentPosition(
+                            (position) => {
+                                processLocation(position);
+                            },
+                            (err2) => {
+                                alert("लोकेशन नहीं मिल पाई। कृपया इंटरनेट और जीपीएस ऑन रखें।");
+                                playSiren();
+                            },
+                            { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 }
+                        );
                     },
-                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                    { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 }
                 );
             }
+        }
+
+        function processLocation(position) {
+            let lat = position.coords.latitude;
+            let lon = position.coords.longitude;
+            
+            getExactLocationName(lat, lon, (exactAddress) => {
+                db.ref('alerts/current').set({
+                    lat: lat,
+                    lon: lon,
+                    address: exactAddress,
+                    time: Date.now(),
+                    message: "गंभीर खतरा!"
+                });
+
+                showTopAlert(exactAddress, lat, lon);
+                playSiren();
+            });
         }
 
         function showTopAlert(address, lat, lon) {
@@ -187,7 +199,6 @@
             } catch (e) {}
         }
 
-        // क्लाउड पर इनकमिंग अलर्ट चेक करना
         db.ref('alerts/current').on('value', (snapshot) => {
             let data = snapshot.val();
             if (data && (Date.now() - data.time < 40000)) {
